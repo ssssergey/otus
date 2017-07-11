@@ -101,6 +101,7 @@ def two_pair(ranks):
 
 
 def combinations_handler(combinations):
+    """ Непосредственно перебирает наборы из 5 карт и находит лучший из них """
     best = {'rank': 0, 'params': None, 'cards': None}
     for hand5 in combinations:
         rank = hand_rank(hand5)
@@ -121,27 +122,36 @@ def best_hand(hand):
 
 def best_wild_hand(hand):
     """best_hand но с джокерами"""
-    common_list = [card for card in hand if not '?' in card]
-    jokers_number = len(hand) - len(common_list)
-    handx_combinations = list(combinations(common_list, 5 - jokers_number))
-    hand5_combinations = list(combinations(common_list, 5))
-    joker_list = set()
+    common_list = []
+    jokers_list = []
     for card in hand:
-        if '?' in card:
-            if 'R' in card:
-                color_suits = ['H', 'D']
-            else:
-                color_suits = ['S', 'C']
-            cards_product = list(product(list(ranks_str), color_suits))
-            extra__cards = {''.join(item) for item in cards_product}
-            joker_list.update(extra__cards)
-    result = (handx_combinations, tuple(joker_list))
-    joker_product = list(product(*result))
-    joker_combinations = [item[0] + (item[1],) for item in joker_product]
-    print joker_combinations
-    best = combinations_handler(joker_combinations + hand5_combinations)
-    # best = combinations_handler([('7C', 'TC', 'TD', 'TH', 'TS'),])
-    print best
+        if not '?' in card:
+            common_list.append(card)
+        else:
+            jokers_list.append(card)
+
+    # Находим комбинации для карт без джокера
+    element_length = 5 - len(jokers_list)
+    handx_combinations = list(combinations(common_list, element_length))
+
+    # Увеличиваем длину комбинаций на 1 для каждого джокера
+    for joker in jokers_list:
+        # Находим все варианты карт для данного джокера
+        if 'R' in joker:
+            color_suits = ['H', 'D']
+        else:
+            color_suits = ['S', 'C']
+        cards_product = list(product(list(ranks_str), color_suits))
+        joker_cards = [''.join(item) for item in cards_product]
+        # Получаем произведение неполных комбинаций и вариантов карт джокера
+        new_element_length = element_length + 1
+        result = (handx_combinations, tuple(joker_cards))
+        handx_combinations = [item[0] + (item[1],) for item in product(*result)]
+        # Оставляем только наборы без повторений
+        handx_combinations = [comb for comb in handx_combinations if len(set(comb)) == new_element_length]
+        element_length = new_element_length
+
+    best = combinations_handler(handx_combinations)
     return best['cards']
 
 
