@@ -22,6 +22,7 @@ config = {
 
 
 def median(numbers):
+    """ Вычисляет медиану последовательности чисел """
     numbers = sorted(numbers)
     center = len(numbers) / 2
     if len(numbers) % 2 == 0:
@@ -30,18 +31,28 @@ def median(numbers):
         return numbers[center]
 
 
-def parse_gzip(fullpath):
-    f = gzip.open(fullpath, 'rb')
-    file_content = f.readlines()
+def get_file():
+    filename = os.listdir(config['LOG_DIR'])[0]
+    fullpath = os.path.join(config['LOG_DIR'], filename)
+    return fullpath
+
+
+def parse(file_content):
+    """ Парсим содержимое файла """
     mapping = defaultdict(list)
+    # Делаем маппинг url к списку всех времен запросов к нему
     for line in file_content:
         url = line.split(' ')[7]
         request_time = float(line.split(' ')[-1])
         mapping[url].append(request_time)
+
+    # Получаем общие показатели за все url
     values = mapping.values()
     values = list(itertools.chain(*values))
     total_count = len(values)
     total_time = sum(values)
+
+    # Собираем список urls с расчитанными для каждого показателями
     result_list = []
     for url, times in mapping.items():
         item = {'url': url,
@@ -54,10 +65,10 @@ def parse_gzip(fullpath):
                 'time_sum': "%.3f" % sum(times)
                 }
         result_list.append(item)
+    result_list = sorted(result_list, key=lambda x: x['time_sum'], reverse=True)
+    json_str = json.dumps(result_list[:config['REPORT_SIZE']])
 
-    result_list = sorted(result_list, key=lambda x: x['time_avg'], reverse=True)
-    json_str = json.dumps(result_list)
-
+    # Формируем html-файл
     new_report_name = datetime.now().strftime('report-%Y.%m.%d.html')
     with open(os.path.join(config['REPORT_DIR'], "report.html"), "r") as template, open(
             os.path.join(config['REPORT_DIR'], new_report_name), "w") as new_report:
@@ -67,12 +78,16 @@ def parse_gzip(fullpath):
 
 
 def main():
-    filename = os.listdir(config['LOG_DIR'])[0]
-    fullpath = os.path.join(config['LOG_DIR'], filename)
+    fullpath = get_file()
     if fullpath.endswith('.gz'):
-        parse_gzip(fullpath)
+        # Для gzip
+        f = gzip.open(fullpath, 'rb')
     else:
-        pass
+        # Для plain
+        f = open(fullpath, 'r')
+    file_content = f.readlines()
+    parse(file_content)
+    f.close()
 
 
 if __name__ == "__main__":
