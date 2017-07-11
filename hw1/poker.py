@@ -31,7 +31,7 @@ from itertools import combinations, product
 sort_mapping = {'2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, 'T': 10, 'J': 11, 'Q': 12, 'K': 13,
                 'A': 14}
 
-ranks_str = 'AKQJT98765432'
+RANKS_STR = 'AKQJT98765432'
 
 
 def hand_rank(hand):
@@ -66,7 +66,7 @@ def card_ranks(hand):
 
 def flush(hand):
     """Возвращает True, если все карты одной масти"""
-    suits = [i[1] for i in hand]
+    suits = [suit for rank, suit in hand]
     return len(set(suits)) == 1
 
 
@@ -100,24 +100,11 @@ def two_pair(ranks):
         return
 
 
-def combinations_handler(combinations):
-    """ Непосредственно перебирает наборы из 5 карт и находит лучший из них """
-    best = {'rank': 0, 'params': None, 'cards': None}
-    for hand5 in combinations:
-        rank = hand_rank(hand5)
-        rank = {'rank': rank[0], 'params': rank[1:], 'cards': hand5}
-        if rank['rank'] > best['rank']:
-            best = rank
-        elif rank['rank'] == best['rank']:
-            best = max([rank, best], key=lambda x: x['params'])
-    return best
-
-
 def best_hand(hand):
     """Из "руки" в 7 карт возвращает лучшую "руку" в 5 карт """
     hand5_combinations = combinations(hand, 5)
-    best = combinations_handler(hand5_combinations)
-    return best['cards']
+    best = max(hand5_combinations, key=hand_rank)
+    return best
 
 
 def best_wild_hand(hand):
@@ -141,7 +128,7 @@ def best_wild_hand(hand):
             color_suits = ['H', 'D']
         else:
             color_suits = ['S', 'C']
-        cards_product = list(product(list(ranks_str), color_suits))
+        cards_product = list(product(list(RANKS_STR), color_suits))
         joker_cards = [''.join(item) for item in cards_product]
         # Получаем произведение неполных комбинаций и вариантов карт джокера
         new_element_length = element_length + 1
@@ -151,8 +138,8 @@ def best_wild_hand(hand):
         handx_combinations = [comb for comb in handx_combinations if len(set(comb)) == new_element_length]
         element_length = new_element_length
 
-    best = combinations_handler(handx_combinations)
-    return best['cards']
+    best = max(handx_combinations, key=hand_rank)
+    return best
 
 
 def test_best_hand():

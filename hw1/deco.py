@@ -52,7 +52,7 @@ def memo(f):
         if args in wrapper.cache:
             return wrapper.cache[args]
         else:
-            wrapper.calls = getattr(f, 'calls', 0)
+            update_wrapper(wrapper, f)
             wrapper.cache[args] = f(*args)
             return f(*args)
 

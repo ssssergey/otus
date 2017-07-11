@@ -6,9 +6,10 @@
 #                     '$status $body_bytes_sent "$http_referer" '
 #                     '"$http_user_agent" "$http_x_forwarded_for" "$http_X_REQUEST_ID" "$http_X_RB_USER" '
 #                     '$request_time';
-
+import glob
 import os
 import gzip
+import re
 from collections import defaultdict
 import itertools
 import json
@@ -39,9 +40,9 @@ def percentile(numbers, percent, key=lambda x: x):
 
 
 def get_file():
-    filename = os.listdir(config['LOG_DIR'])[0]
-    fullpath = os.path.join(config['LOG_DIR'], filename)
-    return fullpath
+    path = os.path.join(config['LOG_DIR'], '*.gz')
+    newest = max(glob.iglob(path), key=os.path.getctime)
+    return newest
 
 
 def parse(file_content):
@@ -49,12 +50,13 @@ def parse(file_content):
     mapping = defaultdict(list)
     # Делаем маппинг url к списку всех времен запросов к нему
     for line in file_content:
-        url = line.split(' ')[7]
-        request_time = float(line.split(' ')[-1])
+        url_pattern = re.compile(r'\[.+?\] "[A-Z]+? (/.+?)(?= HTTP).*? ([(\d\.)]+)$')
+        url = url_pattern.search(line).group(1)
+        request_time = float(url_pattern.search(line).group(2))
         mapping[url].append(request_time)
 
     # Получаем общие показатели за все url
-    values = mapping.values()
+    values = mapping.itervalues()
     values = list(itertools.chain(*values))
     total_count = len(values)
     total_time = sum(values)
@@ -74,28 +76,37 @@ def parse(file_content):
                 }
         result_list.append(item)
     result_list = sorted(result_list, key=lambda x: x['time_sum'], reverse=True)
-    json_str = json.dumps(result_list[:config['REPORT_SIZE']])
-
-    # Формируем html-файл
-    new_report_name = datetime.now().strftime('report-percentile-%Y.%m.%d.html')
-    with open(os.path.join(config['REPORT_DIR'], "report.html"), "r") as template, open(
-            os.path.join(config['REPORT_DIR'], new_report_name), "w") as new_report:
-        content = template.read()
-        content = content.replace('$table_json', json_str)
-        new_report.write(content)
+    json_str = json.dumps(result_list)
+    return json_str
 
 
 def main():
-    fullpath = get_file()
-    if fullpath.endswith('.gz'):
-        # Для gzip
-        f = gzip.open(fullpath, 'rb')
+    # Формируем полный путь для будущего репорта
+    new_report_name = datetime.now().strftime('report-%Y.%m.%d.html')
+    new_report_path = os.path.join(config['REPORT_DIR'], new_report_name)
+    # Начинаем парсинг, только если репорта с таким именем не существует
+    if not os.path.exists(new_report_path):
+        log_path = get_file()
+        if log_path.endswith('.gz'):
+            # Для gzip
+            f = gzip.open(log_path, 'rb')
+        else:
+            # Для plain
+            f = open(log_path, 'r')
+        file_content = itertools.islice(f, config['REPORT_SIZE'])
+
+        json_str = parse(file_content)
+        f.close()
+
+        # Формируем html-файл
+        with open(os.path.join(config['REPORT_DIR'], "report.html"), "r") as template, open(new_report_path,
+                                                                                            "w") as new_report:
+            content = template.read()
+            content = content.replace('$table_json', json_str)
+            new_report.write(content)
+        print 'File has been created.'
     else:
-        # Для plain
-        f = open(fullpath, 'r')
-    file_content = f.readlines()
-    parse(file_content)
-    f.close()
+        print 'File already exists.'
 
 
 if __name__ == "__main__":
