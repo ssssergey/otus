@@ -103,43 +103,23 @@ def two_pair(ranks):
 def best_hand(hand):
     """Из "руки" в 7 карт возвращает лучшую "руку" в 5 карт """
     hand5_combinations = combinations(hand, 5)
-    best = max(hand5_combinations, key=hand_rank)
-    return best
+    return max(hand5_combinations, key=hand_rank)
+
+
+def variants(card):
+    if not card.startswith('?'):
+        return [card]
+    color = card[1]
+    suits = 'SC' if color == 'B' else 'HD'
+    return [r + s for r in RANKS_STR for s in suits]
 
 
 def best_wild_hand(hand):
     """best_hand но с джокерами"""
-    common_list = []
-    jokers_list = []
-    for card in hand:
-        if not '?' in card:
-            common_list.append(card)
-        else:
-            jokers_list.append(card)
-
-    # Находим комбинации для карт без джокера
-    element_length = 5 - len(jokers_list)
-    handx_combinations = list(combinations(common_list, element_length))
-
-    # Увеличиваем длину комбинаций на 1 для каждого джокера
-    for joker in jokers_list:
-        # Находим все варианты карт для данного джокера
-        if 'R' in joker:
-            color_suits = ['H', 'D']
-        else:
-            color_suits = ['S', 'C']
-        cards_product = list(product(list(RANKS_STR), color_suits))
-        joker_cards = [''.join(item) for item in cards_product]
-        # Получаем произведение неполных комбинаций и вариантов карт джокера
-        new_element_length = element_length + 1
-        result = (handx_combinations, tuple(joker_cards))
-        handx_combinations = [item[0] + (item[1],) for item in product(*result)]
-        # Оставляем только наборы без повторений
-        handx_combinations = [comb for comb in handx_combinations if len(set(comb)) == new_element_length]
-        element_length = new_element_length
-
-    best = max(handx_combinations, key=hand_rank)
-    return best
+    varsets = (variants(c) for c in hand)
+    hands = product(*varsets)
+    combs = set(best_hand(h) for h in hands if len(set(h)) == 7)
+    return max(combs, key=hand_rank)
 
 
 def test_best_hand():
