@@ -22,6 +22,8 @@ config = {
     "LOG_DIR": "./log"
 }
 
+log_pattern = re.compile(r'\[.+?\] "[A-Z]+? (/.+?)(?= HTTP).*? ([(\d\.)]+)$')
+
 
 def percentile(numbers, percent, key=lambda x: x):
     """
@@ -40,26 +42,26 @@ def percentile(numbers, percent, key=lambda x: x):
 
 
 def get_file():
-    path = os.path.join(config['LOG_DIR'], '*.gz')
-    newest = max(glob.iglob(path), key=os.path.getctime)
-    return newest
+    path_template = os.path.join(config['LOG_DIR'], '*.gz')
+    paths = glob.iglob(path_template)
+    mapping = ((datetime.strptime(path[-11:-3], '%Y%m%d'), path) for path in paths)
+    return max(mapping)[1]
 
 
-def parse(file_content):
+def parse(file_object):
     """ Парсим содержимое файла """
     mapping = defaultdict(list)
+    total_count = 0
+    total_time = 0
     # Делаем маппинг url к списку всех времен запросов к нему
-    for line in file_content:
-        url_pattern = re.compile(r'\[.+?\] "[A-Z]+? (/.+?)(?= HTTP).*? ([(\d\.)]+)$')
-        url = url_pattern.search(line).group(1)
-        request_time = float(url_pattern.search(line).group(2))
-        mapping[url].append(request_time)
-
-    # Получаем общие показатели за все url
-    values = mapping.itervalues()
-    values = list(itertools.chain(*values))
-    total_count = len(values)
-    total_time = sum(values)
+    for line in file_object:
+        groups = log_pattern.search(line.strip())
+        if groups:
+            url = groups.group(1)
+            request_time = float(groups.group(2))
+            mapping[url].append(request_time)
+            total_count += 1
+            total_time += request_time
 
     # Собираем список urls с расчитанными для каждого показателями
     result_list = []
@@ -76,7 +78,7 @@ def parse(file_content):
                 }
         result_list.append(item)
     result_list = sorted(result_list, key=lambda x: x['time_sum'], reverse=True)
-    json_str = json.dumps(result_list)
+    json_str = json.dumps(result_list[:config['REPORT_SIZE']])
     return json_str
 
 
@@ -93,9 +95,7 @@ def main():
         else:
             # Для plain
             f = open(log_path, 'r')
-        file_content = itertools.islice(f, config['REPORT_SIZE'])
-
-        json_str = parse(file_content)
+        json_str = parse(f)
         f.close()
 
         # Формируем html-файл
