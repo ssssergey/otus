@@ -11,19 +11,18 @@ index 9ed5487..cd74ae4 100644
  
  enum cmp_op {PyCmp_LT=Py_LT, PyCmp_LE=Py_LE, PyCmp_EQ=Py_EQ, PyCmp_NE=Py_NE, PyCmp_GT=Py_GT, PyCmp_GE=Py_GE,
 diff --git a/Lib/opcode.py b/Lib/opcode.py
-index e403365..141cc93 100644
+index e403365..2e38f34 100644
 --- a/Lib/opcode.py
 +++ b/Lib/opcode.py
-@@ -188,5 +188,7 @@ def_op('EXTENDED_ARG', 145)
+@@ -188,5 +188,6 @@ def_op('EXTENDED_ARG', 145)
  EXTENDED_ARG = 145
  def_op('SET_ADD', 146)
  def_op('MAP_ADD', 147)
 +def_op('LOAD_LEE', 148)
-+
  
  del def_op, name_op, jrel_op, jabs_op
 diff --git a/Python/ceval.c b/Python/ceval.c
-index 4e4adc2..f298663 100644
+index 4e4adc2..b39f9b6 100644
 --- a/Python/ceval.c
 +++ b/Python/ceval.c
 @@ -1210,6 +1210,23 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
@@ -45,20 +44,38 @@ index 4e4adc2..f298663 100644
 +                UNBOUNDLOCAL_ERROR_MSG,
 +                PyTuple_GetItem(co->co_varnames, oparg));
 +            break;
-+        }
++	        }
 +
          TARGET(LOAD_FAST)
          {
              x = GETLOCAL(oparg);
 diff --git a/Python/opcode_targets.h b/Python/opcode_targets.h
-index 95eb127..80ef2ff 100644
+index 95eb127..c66129c 100644
 --- a/Python/opcode_targets.h
 +++ b/Python/opcode_targets.h
-@@ -147,6 +147,7 @@ static void *opcode_targets[256] = {
+@@ -147,7 +147,7 @@ static void *opcode_targets[256] = {
      &&TARGET_EXTENDED_ARG,
      &&TARGET_SET_ADD,
      &&TARGET_MAP_ADD,
+-    &&_unknown_opcode,
 +    &&TARGET_LOAD_LEE,
      &&_unknown_opcode,
      &&_unknown_opcode,
      &&_unknown_opcode,
+diff --git a/Python/peephole.c b/Python/peephole.c
+index 11f6f88..1ce729e 100644
+--- a/Python/peephole.c
++++ b/Python/peephole.c
+@@ -414,6 +414,12 @@ PyCode_Optimize(PyObject *code, PyObject* consts, PyObject *names,
+                 /* Skip over LOAD_CONST trueconst
+                    POP_JUMP_IF_FALSE xx. This improves
+                    "while 1" performance. */
++            case LOAD_FAST:
++                if (GETARG(codestr, i) == 0 && codestr[i+3] == LOAD_CONST) {
++                    codestr[i+3] = LOAD_LEE;
++                    codestr[i] = NOP;
++                    break;
++                }
+             case LOAD_CONST:
+                 cumlc = lastlc + 1;
+                 j = GETARG(codestr, i);
