@@ -63,7 +63,7 @@ index 95eb127..c66129c 100644
      &&_unknown_opcode,
      &&_unknown_opcode,
 diff --git a/Python/peephole.c b/Python/peephole.c
-index 11f6f88..1ce729e 100644
+index 11f6f88..f650a78 100644
 --- a/Python/peephole.c
 +++ b/Python/peephole.c
 @@ -414,6 +414,12 @@ PyCode_Optimize(PyObject *code, PyObject* consts, PyObject *names,
@@ -73,9 +73,9 @@ index 11f6f88..1ce729e 100644
 +            case LOAD_FAST:
 +                if (GETARG(codestr, i) == 0 && codestr[i+3] == LOAD_CONST) {
 +                    codestr[i+3] = LOAD_LEE;
-+                    codestr[i] = NOP;
-+                    break;
++                    memset(codestr+i, NOP, 3);
 +                }
++                break;
              case LOAD_CONST:
                  cumlc = lastlc + 1;
                  j = GETARG(codestr, i);
